@@ -38,6 +38,6 @@ struct ast* newastRet(struct ast * astl);
 struct ast* newastblk(struct ast * astl, struct ast * astr);
 struct fun* newFun(char* type,char* name,struct ast* param, struct ast* body);
 struct compileUnit* newCompileUnit(struct fun* entry);
-void dumpCompileUnit(struct compileUnit* compileUnit);
+void dumpCompileUnit(struct compileUnit* compileUnit , char* buffer);
 void freeCompileUnit(struct compileUnit* compileUnit);
 #endif // SYS_AST_H

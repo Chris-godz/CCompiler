@@ -79,8 +79,10 @@ int eval(struct ast* ast)
     }
     return ret;
 }
-void dumpCompileUnit(struct compileUnit* compileUnit)
+void dumpCompileUnit(struct compileUnit* compileUnit, char* buffer)
 {
+    assert(compileUnit);
+    assert(buffer);
     while(compileUnit)
     {
         /*
@@ -90,12 +92,13 @@ void dumpCompileUnit(struct compileUnit* compileUnit)
                 ret 0           // return 0
             }
         */
-        printf("fun @%s(): %s {\n", compileUnit->entry_->name_, !strcmp(compileUnit->entry_->type_ , "int") ? "i32" : "Unknown");
-        printf("%%entry:\n");
+        char* pos = buffer; // 定义指针追踪当前位置
+        pos += sprintf(pos, "fun @%s(): %s {\n", compileUnit->entry_->name_, !strcmp(compileUnit->entry_->type_ , "int") ? "i32" : "Unknown");
+        pos += sprintf(pos, "%%entry:\n");
         eval_ret = 0;
         eval(compileUnit->entry_->body_);
         compileUnit->entry_->ret_ = eval_ret;
-        printf("\tret %d\n}", compileUnit->entry_->ret_);
+        pos += sprintf(pos, "\tret %d\n}", compileUnit->entry_->ret_);
         compileUnit = compileUnit->next_;
     }
 }
