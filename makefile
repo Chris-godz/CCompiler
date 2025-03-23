@@ -1,5 +1,4 @@
 # Based on https://matansilver.com/2017/08/29/universal-makefile/
-# Modified by MaxXing
 
 # Settings
 # Set to 0 to enable C mode
@@ -101,3 +100,4 @@ clean:
 	-rm -rf $(BUILD_DIR)
 
 -include $(DEPS)
+-include $(TOP_DIR)/testcase/testcase.mk

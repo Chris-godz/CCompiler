@@ -7,19 +7,21 @@ void yyerror(const char *s);
 
 %union{
     char *symbol_;
+    char op;
     struct ast* ast_;
     struct fun* fun_;
     struct compileUnit* com_;
     int val_;
 }
 
-%token INT RETURN IDENT IVAL
+%token INT RETURN IDENT IVAL LE GE EQ NE AND OR
 
 %type<symbol_> IDENT FuncType
 %type<val_> IVAL
-%type<ast_> Block Exp Number
+%type<ast_> Block Stmt Exp LorExp LandExp EqExp CmpExp AddExp MulExp UnaryExp PrimaryExp Number
 %type<fun_> FuncDef
 %type<com_> CompUnit
+%type<op> UnaryOp
 
 %start CompUnit
 
@@ -42,14 +44,60 @@ FuncType: INT {
     }
     ;
 
-Block: '{' Exp '}' {
+Block: '{' Stmt '}' {
         $$ = newastblk($2,NULL);
     }
     ;
 
-Exp: RETURN Number ';' {
+Stmt: RETURN Exp ';' {
         $$ = newastRet($2);
     }
+    ;
+
+Exp: LorExp { $$ = $1; }
+    ;
+
+LorExp: LandExp { $$ = $1; }
+    | LorExp OR LandExp { $$ = newastBExp('O', $1, $3); }
+    ;
+
+LandExp:EqExp { $$ = $1; }
+    | LandExp AND EqExp { $$ = newastBExp('A', $1, $3); }
+    ; 
+
+EqExp: CmpExp { $$ = $1; }
+    | EqExp EQ CmpExp { $$ = newastBExp('E', $1, $3); }
+    | EqExp NE CmpExp { $$ = newastBExp('N', $1, $3); }
+    ;
+
+CmpExp: AddExp { $$ = $1; }
+    | CmpExp '<' AddExp { $$ = newastBExp('<', $1, $3); }
+    | CmpExp '>' AddExp { $$ = newastBExp('>', $1, $3); }
+    | CmpExp LE AddExp { $$ = newastBExp('L', $1, $3); }
+    | CmpExp GE AddExp { $$ = newastBExp('G', $1, $3); }
+    
+AddExp: MulExp { $$ = $1; }
+    | AddExp '+' MulExp { $$ = newastBExp('+', $1, $3); }
+    | AddExp '-' MulExp { $$ = newastBExp('-', $1, $3); }
+    ;
+
+MulExp: UnaryExp { $$ = $1; }
+    | MulExp '*' UnaryExp { $$ = newastBExp('*', $1, $3); }
+    | MulExp '/' UnaryExp { $$ = newastBExp('/', $1, $3); }
+    | MulExp '%' UnaryExp { $$ = newastBExp('%', $1, $3); }
+    ;
+
+UnaryExp: PrimaryExp { $$ = $1; }
+    | UnaryOp UnaryExp { $$ = newastUExp($1,$2); }
+    ;
+
+PrimaryExp: Number { $$ = $1; }
+    | '(' Exp ')' { $$ = $2; }
+    ;
+
+UnaryOp: '-' { $$ = '-'; }
+    | '+' { $$ = '+'; }
+    | '!' { $$ = '!'; }
     ;
 
 Number: IVAL { 

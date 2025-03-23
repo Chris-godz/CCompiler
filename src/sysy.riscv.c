@@ -30,7 +30,9 @@ void visit_slice(const koopa_raw_slice_t slice)
 }
 void visit_program(const koopa_raw_program_t program)
 {
+    // 访问所有全局变量
     visit_slice(program.values);
+    // 访问所有函数
     visit_slice(program.funcs);
 }
 void visit_function(const koopa_raw_function_t function)

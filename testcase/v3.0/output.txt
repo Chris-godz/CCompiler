@@ -1,0 +1,5 @@
+fun @main(): i32 {
+%entry:
+	%0 = le 1, 2
+	ret %0
+}
