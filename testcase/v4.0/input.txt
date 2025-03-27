@@ -1,0 +1,4 @@
+int main() {
+  int asdadas = 10;
+  return asdadas;
+}

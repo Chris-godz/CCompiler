@@ -11,7 +11,7 @@ int fileno(FILE *stream);
 "//".* { /* ignore line comments */ }
 "/*"([^*]*|(\*+[^/]))*"*/" { /* ignore block comments */ }
 
-
+"const"             { return CONST; }
 "int"               { return INT; }
 "return"            { return RETURN; }
 "<="                { return LE; }

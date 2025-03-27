@@ -14,11 +14,11 @@ void yyerror(const char *s);
     int val_;
 }
 
-%token INT RETURN IDENT IVAL LE GE EQ NE AND OR
+%token INT CONST RETURN IDENT IVAL LE GE EQ NE AND OR
 
-%type<symbol_> IDENT FuncType
+%type<symbol_> IDENT FuncType BType
 %type<val_> IVAL
-%type<ast_> Block Stmt Exp LorExp LandExp EqExp CmpExp AddExp MulExp UnaryExp PrimaryExp Number
+%type<ast_> Block BlocKItem Stmt Decl VarDecl VarDef VarInit ConstDecl ConstDef ConstInit ConstExp Exp LorExp LandExp EqExp CmpExp AddExp MulExp UnaryExp PrimaryExp LVal Number
 %type<fun_> FuncDef
 %type<com_> CompUnit
 %type<op> UnaryOp
@@ -44,14 +44,53 @@ FuncType: INT {
     }
     ;
 
-Block: '{' Stmt '}' {
-        $$ = newastblk($2,NULL);
+Block:  '{' BlocKItem '}'   { $$ = newastBlk( $2 , NULL); }
+    ;
+
+BlocKItem: Stmt { $$ = newastBItem($1, NULL); }
+    | Decl { $$ = newastBItem($1, NULL); }
+    | Decl BlocKItem { $$ = newastBItem($1, $2); }
+    | Stmt BlocKItem { $$ = newastBItem($1, $2); }
+    ;
+
+Stmt: LVal '=' Exp ';' { $$ = newastAssign($1, $3); }
+    | RETURN Exp ';'   { $$ = newastRet($2); }
+    ;
+
+Decl: ConstDecl { $$ =$1; }
+    | VarDecl { $$ = $1; }
+    ;
+
+VarDecl: BType VarDef ';' { $$ = $2; }
+    ;
+
+VarDef: IDENT { $$ = newastVarDef( NULL , NULL, $1 ); }
+    | IDENT '=' VarInit  { $$ = newastVarDef( $3 , NULL, $1 ); }
+    | IDENT '=' VarInit ',' VarDef { $$ = newastVarDef( $3 , $5, $1 ); }
+    | IDENT ',' VarDef { $$ = newastVarDef( NULL , $3, $1 ); }
+    ;
+
+VarInit: Exp { $$ = $1; }
+    ;
+
+ConstDecl: CONST BType ConstDef ';' {  $$ = $3; }
+    ;
+
+ConstDef: IDENT '=' ConstInit  { $$ = newastConstDef($3 ,NULL,$1); }
+    | IDENT '=' ConstInit ',' ConstDef { $$ = newastConstDef($3, $5 , $1); }
+    ;
+
+BType: INT  {
+    char* newstr = (char*)malloc(strlen("int") + 1);
+    strcpy(newstr, "int");
+    $$ = newstr;
     }
     ;
 
-Stmt: RETURN Exp ';' {
-        $$ = newastRet($2);
-    }
+ConstInit: ConstExp { $$ = $1; }
+    ;
+
+ConstExp: Exp { $$ = $1; }
     ;
 
 Exp: LorExp { $$ = $1; }
@@ -93,11 +132,15 @@ UnaryExp: PrimaryExp { $$ = $1; }
 
 PrimaryExp: Number { $$ = $1; }
     | '(' Exp ')' { $$ = $2; }
+    | LVal { $$ = $1; }
     ;
 
 UnaryOp: '-' { $$ = '-'; }
     | '+' { $$ = '+'; }
     | '!' { $$ = '!'; }
+    ;
+
+LVal: IDENT { $$ = newastLVal($1); }
     ;
 
 Number: IVAL { 

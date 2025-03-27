@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 extern struct compileUnit * compilelist;
 
 struct ast{
@@ -11,6 +12,12 @@ struct ast{
     struct ast* astl_;
     struct ast* astr_;
     char* val_;
+};
+
+struct valNode{
+    int type_;
+    int value_;
+    struct ast* ast_;
 };
 
 struct fun{
@@ -28,6 +35,7 @@ struct compileUnit{
 
 enum {
     NT_INUMBER,
+    NT_LVAL,
     NT_EXP_PLUS,
     NT_EXP_MINUS,
     NT_EXP_EXCLAM,
@@ -43,17 +51,28 @@ enum {
     NT_EXP_AND,
     NT_EXP_OR,
     NT_STMT_RETURN,
-    NT_FUNCTION,
+    NT_STMT_ASSIGN,
+    NT_DECL_CONST,
+    NT_DECL_VAR,
+    NT_BLOCK_ITEM,
     NT_BLOCK, 
+    NT_FUNCTION,
 };
+
 struct ast* newastNum(int value);
 struct ast* newastRet(struct ast * astl);
 struct ast* newastUExp(char optype, struct ast * astl);
 struct ast* newastBExp(char optype, struct ast * astl, struct ast * astr);
-struct ast* newastblk(struct ast * astl, struct ast * astr);
+void ConstSymbolRegister(struct ast* constExp);
+struct ast *newastConstDef(struct ast *astl, struct ast *astr, char *constsymbol);
+struct ast* newastBlk(struct ast * astl, struct ast * astr);
 struct fun* newFun(char* type,char* name,struct ast* param, struct ast* body);
 struct compileUnit* newCompileUnit(struct fun* entry);
-
+struct ast* newastLVal(char* name);
+struct ast* newastVarDef(struct ast* astl, struct ast* astr, char* varName);
+struct ast *newastAssign(struct ast *astl, struct ast *astr);
+struct ast* newastBItem(struct ast* astl, struct ast* astr);
+int Calc(struct ast *ast);
 void dumpCompileUnit(struct compileUnit* compileUnit , char* buffer);
 void freeCompileUnit(struct compileUnit* compileUnit);
 #endif // SYS_AST_H
