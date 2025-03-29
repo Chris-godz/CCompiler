@@ -13,3 +13,6 @@ t3:$(BUILD_DIR)/$(TARGET_EXEC)
 
 t4:$(BUILD_DIR)/$(TARGET_EXEC)
 	@$(BUILD_DIR)/$(TARGET_EXEC) -koopa $(testdir)/v4.0/input.txt -o $(testdir)/v4.0/output.txt
+
+t5:$(BUILD_DIR)/$(TARGET_EXEC)
+	@$(BUILD_DIR)/$(TARGET_EXEC) -koopa $(testdir)/v5.0/input.txt -o $(testdir)/v5.0/output.txt

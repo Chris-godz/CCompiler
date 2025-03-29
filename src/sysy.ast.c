@@ -7,6 +7,13 @@ static bool ComPareFunc(void *str1, void *str2)
 }
 static char *bufferCursor = NULL;
 static int Reg = 0;
+static struct valNode *blkList = NULL;
+struct strNode
+{
+    char *str_;
+    struct strNode *next_;
+    struct strNode *row_;
+}*strList = NULL;
 static size_t HashCalc(void *key)
 {
     char *str = (char *)key;
@@ -18,23 +25,13 @@ static size_t HashCalc(void *key)
     return hash;
 }
 static HashMap *symbolTable = NULL;
-bool SymbolTableContain(char *symbol)
+bool SymbolTableRegistered(char *symbol)
 {
     if (!symbolTable)
     {
         symbolTable = map_create(ComPareFunc, HashCalc);
     }
     return map_contains(symbolTable, symbol);
-}
-void SymbolTableRegister(char *symbol, struct valNode *valNode)
-{
-    if (!symbolTable)
-    {
-        symbolTable = map_create(ComPareFunc, HashCalc);
-    }
-    char *sym = malloc(sizeof(char) * (strlen(symbol) + 1));
-    strcpy(sym, symbol);
-    map_put(symbolTable, (void *)sym, (void *)valNode);
 }
 struct valNode *SymbolTableGet(char *symbol)
 {
@@ -45,6 +42,47 @@ struct valNode *SymbolTableGet(char *symbol)
     }
     return (struct valNode *)map_get(symbolTable, symbol);
 }
+
+void SymbolTableRegister(char *symbol, struct valNode *valNode)
+{
+    assert(valNode != NULL);
+    if (!symbolTable)
+    {
+        symbolTable = map_create(ComPareFunc, HashCalc);
+    }
+    if(!SymbolTableRegistered(symbol))
+    {
+        // 深拷贝字符串
+        char *sym = malloc(sizeof(char) * (strlen(symbol) + 1));
+        strcpy(sym, symbol);
+
+        //创建头节点
+        struct valNode *head = (struct valNode *)malloc(sizeof(struct valNode));
+        if (!head)
+        {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        head->next_ = valNode;
+        head->row_ = NULL;
+        head->type_ = SYM_HEADER;
+        // head 和 valNode 的 编号由注册函数统一维护
+        head->value_ = (valNode->type_ == SYM_VAR ? 1 : 0);
+        if(valNode->type_ == SYM_VAR) valNode->value_ = 0;
+        head->ast_ = NULL;
+        //注册符号
+        map_put(symbolTable, (void *)sym, (void *)head);
+        return;
+    }
+    struct valNode* head = SymbolTableGet(symbol);
+    assert(head != NULL);
+    assert(head->type_ == SYM_HEADER);
+    valNode->next_ = head->next_;
+    if(valNode->type_ == SYM_VAR)  valNode->value_ = head->value_++;
+    head->next_ = valNode;
+    map_put(symbolTable, (void *)symbol, (void *)head);
+}
+
 static inline struct ast *newast(int nodetype, struct ast *astl, struct ast *astr, char *val)
 {
     struct ast *astNode = (struct ast *)malloc(sizeof(struct ast));
@@ -144,11 +182,13 @@ struct ast *newastBExp(char optype, struct ast *astl, struct ast *astr)
 }
 void ConstSymbolRegister(struct ast *constExp)
 {
-    // 计算常量表达式的值
-    if(SymbolTableContain(constExp->val_)) 
+    struct valNode * node = SymbolTableGet(constExp->val_);
+    assert(node != NULL);
+    struct valNode* nodeHeader = node;
+    while(nodeHeader->next_)
     {
-        fprintf(stderr,"%s:got inited twice\n",constExp->val_);
-        exit(EXIT_FAILURE);
+        nodeHeader = nodeHeader->next_;
+        assert(nodeHeader->type_ != SYM_CONST || nodeHeader->type_ != SYM_HEADER);
     }
     int ret = Calc(constExp->astl_);
     // 注册符号
@@ -158,9 +198,68 @@ void ConstSymbolRegister(struct ast *constExp)
         perror("malloc");
         exit(EXIT_FAILURE);
     }
-    valNode->type_ = 1;
+    valNode->type_ = SYM_CONST;
     valNode->value_ = ret;
+    valNode->ast_ = NULL;
+    valNode->next_ = NULL;
+    valNode->row_ = NULL;
     SymbolTableRegister(constExp->val_, valNode);
+
+    assert(blkList != NULL);
+    assert(blkList->next_ != NULL);
+    node = SymbolTableGet(constExp->val_);
+    node = node->next_;
+    assert(node != NULL);
+    assert(node->type_ == SYM_CONST);
+    //更新常量Node链表
+    node->row_ = blkList->next_->row_;
+    blkList->next_->row_ = node;
+    //更新字符串Node链表
+    struct strNode* strNode = (struct strNode *)malloc(sizeof(struct strNode));
+    if (!strNode)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    char* sym = malloc(sizeof(char) * (strlen(constExp->val_) + 1));
+    strcpy(sym, constExp->val_);
+    strNode->str_ = sym;
+    strNode->row_ = strList->next_->row_;
+    strList->next_->row_ = strNode;
+}
+void variableSymbolRegister(struct ast *variableExp)
+{
+    struct valNode *valNode = (struct valNode *)malloc(sizeof(struct valNode));
+    if (!valNode)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    //变量不处理value统一注册时处理
+    valNode->type_ = SYM_VAR;
+    valNode->ast_ = variableExp->astl_;
+    valNode->next_ = NULL;
+    valNode->row_ = NULL;
+    SymbolTableRegister(variableExp->val_, valNode);
+    struct valNode* node = SymbolTableGet(variableExp->val_);
+    node = node->next_;   //更新变量Node链表
+    assert(blkList != NULL);
+    assert(blkList->next_ != NULL);
+    node->row_ = blkList->next_->row_;
+    blkList->next_->row_ = node;
+
+    //更新字符串Node链表
+    struct strNode* strNode = (struct strNode *)malloc(sizeof(struct strNode));
+    if (!strNode)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    char* sym = malloc(sizeof(char) * (strlen(variableExp->val_) + 1));
+    strcpy(sym, variableExp->val_);
+    strNode->str_ = sym;
+    strNode->row_ = strList->next_->row_;
+    strList->next_->row_ = strNode;
 }
 struct ast *newastConstDef(struct ast *astl, struct ast *astr, char *constsymbol)
 {
@@ -278,7 +377,9 @@ int Calc(struct ast *ast)
     {
         val = SymbolTableGet(ast->val_);
         assert(val != NULL);
-        if (val->type_ == 0)
+        assert(val->next_ != NULL);
+        val = val->next_;
+        if (val->type_ == SYM_VAR)
         {
             // 直接计算 变量的值
             // ast->astl_== NULL 成立说明此时仅声明
@@ -291,13 +392,86 @@ int Calc(struct ast *ast)
         }
         else
         {
-            assert(val->type_ == 1);
+            assert(val->type_ == SYM_CONST);
             ret = val->value_;
         }
         break;
     }
     }
     return ret;
+}
+struct ast* newastExps(struct ast* astl, struct ast* astr)
+{
+    return newast(NT_STMT_EXPS, astl, astr, NULL);
+}
+
+void blockNodeFree()
+{
+    if(blkList->next_->row_ == NULL)
+    {
+        assert(strList->next_->row_ == NULL);
+        // 说明没有变量
+        struct valNode* blkHead = blkList->next_;
+        blkList->next_ = blkHead->next_;
+        free(blkHead);
+        struct strNode* strHead = strList->next_;
+        strList->next_ = strHead->next_;
+        free(strHead->str_);
+        free(strHead);
+        return;
+    }
+    assert(blkList != NULL);
+    assert(strList != NULL);
+    struct valNode* blkHead = blkList->next_;
+    struct valNode* nodeHeader = blkHead;
+    struct valNode* nodePrev = NULL;
+
+    struct strNode* strHead = strList->next_;
+    struct strNode* strHeader = strHead;
+    struct strNode* strPrev = NULL;
+
+    while(nodeHeader->row_)
+    {
+        nodeHeader = nodeHeader->row_;
+        assert(nodeHeader->type_ == SYM_VAR || nodeHeader->type_ == SYM_CONST);
+        assert(strHeader->row_ != NULL);
+        strHeader = strHeader->row_;
+
+        if(nodePrev)
+        {
+            assert(strPrev);
+            struct valNode* header = SymbolTableGet(strPrev->str_);
+            assert(header != NULL);
+            assert(header->next_ != NULL);
+            assert(header->next_ == nodePrev);
+            header->next_ = nodePrev->next_;
+            free(nodePrev);
+            free(strPrev->str_);
+            free(strPrev);
+        }
+
+        strPrev = strHeader;
+        nodePrev = nodeHeader;
+    }
+    assert(strPrev);
+    struct valNode* header = SymbolTableGet(strPrev->str_);
+    assert(header != NULL);
+    assert(header->next_ != NULL);
+    assert(header->next_ == nodePrev);
+    header->next_ = nodePrev->next_;
+    free(nodePrev);
+    free(strPrev->str_);
+    free(strPrev);
+
+    // 释放头节点
+    blkHead->row_ = NULL;
+    blkList->next_ = blkHead->next_;
+    free(blkHead);
+
+    strHead->row_ = NULL;
+    strList->next_ = strHead->next_;
+    free(strHead->str_);
+    free(strHead);
 }
 void parse(struct ast *ast)
 {
@@ -311,40 +485,61 @@ void parse(struct ast *ast)
     switch (ast->nodetype_)
     {
     case NT_BLOCK:
-        parse(ast->astl_);
-        parse(ast->astr_);
-        break;
-    case NT_BLOCK_ITEM:
-        parse(ast->astl_);
-        if (ast->astr_)
-            parse(ast->astr_);
-        break;
-    case NT_DECL_CONST:
-        ConstSymbolRegister(ast); // 注册常量
-        if (ast->astr_)
-            parse(ast->astr_);
-        break;
-    case NT_DECL_VAR:
-        bufferCursor += sprintf(bufferCursor, "\t@%s = alloc i32\n", ast->val_);
-        struct valNode *valNode = (struct valNode *)malloc(sizeof(struct valNode));
-        if (!valNode)
+        // 处理当前块的变量
+        assert(blkList != NULL);
+        assert(strList != NULL);
+        struct valNode* blkHeader = (struct valNode *)malloc(sizeof(struct valNode));
+        if (!blkHeader)
         {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
-        valNode->type_ = 0;
-        valNode->value_ = 0;
-        valNode->ast_ = ast->astl_;
-        SymbolTableRegister(ast->val_, valNode);
-
+        blkHeader->row_ = NULL;
+        blkHeader->type_ = SYM_HEADER;
+        blkHeader->ast_ = NULL;
+        blkHeader->next_ = blkList->next_;
+        blkList->next_ = blkHeader;
+        struct strNode* strHeader = (struct strNode *)malloc(sizeof(struct strNode));
+        if (!strHeader)
+        {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        strHeader->str_ = NULL;
+        strHeader->row_ = NULL;
+        strHeader->next_ = strList->next_;
+        strList->next_ = strHeader;
+        
+        parse(ast->astl_);
+        parse(ast->astr_);
+        // 释放当前块的变量
+        blockNodeFree();
+        break;
+    case NT_BLOCK_ITEM:
+        parse(ast->astl_);
+        parse(ast->astr_);
+        break;
+    case NT_DECL_CONST:
+        ConstSymbolRegister(ast); // 注册常量
+        parse(ast->astr_);
+        break;
+    case NT_DECL_VAR:
+        variableSymbolRegister(ast); // 注册变量
+        struct valNode* head = SymbolTableGet(ast->val_);
+        assert(head != NULL);
+        assert(head->type_ == SYM_HEADER);
+        assert(head->next_ != NULL);
+        bufferCursor += sprintf(bufferCursor, "\t@%s_%d = alloc i32\n", ast->val_ , head->next_->value_);
         if (ast->astl_)
         {
             parse(ast->astl_);
-            bufferCursor += sprintf(bufferCursor, "\tstore %s, @%s\n", ast->astl_->val_, ast->val_);
+            bufferCursor += sprintf(bufferCursor, "\tstore %s, @%s_%d\n", ast->astl_->val_, ast->val_, head->next_->value_);
         }
-
-        if (ast->astr_)
-            parse(ast->astr_);
+        parse(ast->astr_);
+        break;
+    case NT_STMT_EXPS:
+        parse(ast->astl_);
+        parse(ast->astr_);
         break;
     case NT_STMT_RETURN:
         if (ast->astl_)
@@ -362,21 +557,27 @@ void parse(struct ast *ast)
         assert(ast->astr_ != NULL);
         parse(ast->astr_);
         val = SymbolTableGet(ast->astl_->val_);
-        if(val== NULL){
-            val = (struct valNode *)malloc(sizeof(struct valNode));
-            if (!val)
+        assert(val != NULL);
+        // 为空说明之前仅声明了变量，未初始化
+        if(val->next_== NULL){
+            // 变量未初始化，创建一个新的节点
+            struct valNode* node  = (struct valNode *)malloc(sizeof(struct valNode));
+            if (!node)
             {
                 perror("malloc");
                 exit(EXIT_FAILURE);
             }
-            val->type_ = 0;
-            val->value_ = 0;
-            SymbolTableRegister(ast->astl_->val_, val);
+            node->type_ = SYM_VAR;
+            node->ast_ = ast->astr_;
+            node->next_ = NULL;
+            node->row_ = NULL;
+            // 注册符号
+            SymbolTableRegister(ast->astl_->val_, node);
         }
-        assert(val->type_ == 0);
+        assert(val->next_->type_ == SYM_VAR);
         //变量就更新符号表中的值
-        val->ast_ = ast->astr_;
-        bufferCursor += sprintf(bufferCursor, "\tstore %s, @%s\n", ast->astr_->val_, ast->astl_->val_);
+        val->next_->ast_ = ast->astr_;
+        bufferCursor += sprintf(bufferCursor, "\tstore %s, @%s_%d\n", ast->astr_->val_, ast->astl_->val_, val->next_->value_);
         break;
     case NT_EXP_PLUS:
         parse(ast->astl_);
@@ -487,7 +688,7 @@ void parse(struct ast *ast)
         bufferCursor += sprintf(bufferCursor, "\t%s = ne %s, 0\n", left_bool_or, ast->astl_->val_);
         right_bool_or = Reg2Str(Reg++);
         bufferCursor += sprintf(bufferCursor, "\t%s = ne %s, 0\n", right_bool_or, ast->astr_->val_);
-        // 再进行按位或操作
+        // 再进行按位或操作blkList
         ast->val_ = Reg2Str(Reg++);
         bufferCursor += sprintf(bufferCursor, "\t%s = or %s, %s\n", ast->val_, left_bool_or, right_bool_or);
         break;
@@ -498,11 +699,14 @@ void parse(struct ast *ast)
     {
         val = SymbolTableGet(ast->val_);
         assert(val != NULL);
-        if (val->type_ == 0)
+        assert(val->next_ != NULL);
+        val = val->next_;
+        assert(val->type_ == SYM_VAR || val->type_ == SYM_CONST);
+        if (val->type_ == SYM_VAR)
         {
             symbol = ast->val_;
             ast->val_ = Reg2Str(Reg++);
-            bufferCursor += sprintf(bufferCursor, "\t%s = load @%s\n", ast->val_, symbol);
+            bufferCursor += sprintf(bufferCursor, "\t%s = load @%s_%d\n", ast->val_, symbol , val->value_);
         }
         else
         {
@@ -528,6 +732,28 @@ struct ast *newastLVal(char *name)
 }
 void dumpCompileUnit(struct compileUnit *compileUnit, char *buffer)
 {
+    assert(blkList == NULL);
+    blkList = (struct valNode *)malloc(sizeof(struct valNode));
+    if (!blkList)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    blkList->next_ = NULL;
+    blkList->row_ = NULL;
+    blkList->type_ = SYM_HEADER;
+    blkList->ast_ = NULL;
+    assert(strList == NULL);
+    strList = (struct strNode *)malloc(sizeof(struct strNode));
+    if (!strList)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    strList->str_ = NULL;
+    strList->next_ = NULL;
+    strList->row_ = NULL;
+
     assert(compileUnit != NULL);
     assert(buffer != NULL);
     bufferCursor = buffer; // 定义指针追踪当前位置

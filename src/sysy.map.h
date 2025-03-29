@@ -28,4 +28,6 @@ void *map_get(HashMap *map, void *key);
 // 检查键是否存在
 bool map_contains(HashMap *map, void *key);
 
+// 检测键是否注册过
+bool map_registered(HashMap *map, void *key);
 #endif // _SYSY_MAP_H_

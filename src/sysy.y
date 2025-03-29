@@ -18,7 +18,7 @@ void yyerror(const char *s);
 
 %type<symbol_> IDENT FuncType BType
 %type<val_> IVAL
-%type<ast_> Block BlocKItem Stmt Decl VarDecl VarDef VarInit ConstDecl ConstDef ConstInit ConstExp Exp LorExp LandExp EqExp CmpExp AddExp MulExp UnaryExp PrimaryExp LVal Number
+%type<ast_> Block BlocKItem Stmt Exps Decl VarDecl VarDef VarInit ConstDecl ConstDef ConstInit ConstExp Exp LorExp LandExp EqExp CmpExp AddExp MulExp UnaryExp PrimaryExp LVal Number
 %type<fun_> FuncDef
 %type<com_> CompUnit
 %type<op> UnaryOp
@@ -45,6 +45,7 @@ FuncType: INT {
     ;
 
 Block:  '{' BlocKItem '}'   { $$ = newastBlk( $2 , NULL); }
+    | '{' '}' { $$ = newastBlk( NULL, NULL); }
     ;
 
 BlocKItem: Stmt { $$ = newastBItem($1, NULL); }
@@ -55,7 +56,13 @@ BlocKItem: Stmt { $$ = newastBItem($1, NULL); }
 
 Stmt: LVal '=' Exp ';' { $$ = newastAssign($1, $3); }
     | RETURN Exp ';'   { $$ = newastRet($2); }
+    | Block { $$ = $1; }
+    | Exps { $$ = $1; }
     ;
+
+Exps: ';' { $$ = newastExps(NULL,NULL); }
+    | Exp ';' { $$ = newastExps($1, NULL); }
+    | Exp ';' Exps { $$ = newastExps($1, $3); }
 
 Decl: ConstDecl { $$ =$1; }
     | VarDecl { $$ = $1; }

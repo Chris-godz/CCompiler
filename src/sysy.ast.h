@@ -18,6 +18,8 @@ struct valNode{
     int type_;
     int value_;
     struct ast* ast_;
+    struct valNode* next_;
+    struct valNode* row_;
 };
 
 struct fun{
@@ -33,6 +35,15 @@ struct compileUnit{
     struct compileUnit* next_;
 };
 
+// 符合节点类型
+enum {
+    SYM_VAR = 0,
+    SYM_CONST,
+    SYM_HEADER,
+    SYM_FUNC,
+};
+
+// AST节点类型
 enum {
     NT_INUMBER,
     NT_LVAL,
@@ -50,6 +61,7 @@ enum {
     NT_EXP_NEQUAL,
     NT_EXP_AND,
     NT_EXP_OR,
+    NT_STMT_EXPS,
     NT_STMT_RETURN,
     NT_STMT_ASSIGN,
     NT_DECL_CONST,
@@ -75,4 +87,5 @@ struct ast* newastBItem(struct ast* astl, struct ast* astr);
 int Calc(struct ast *ast);
 void dumpCompileUnit(struct compileUnit* compileUnit , char* buffer);
 void freeCompileUnit(struct compileUnit* compileUnit);
+struct ast* newastExps(struct ast* astl, struct ast* astr);
 #endif // SYS_AST_H

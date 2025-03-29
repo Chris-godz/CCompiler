@@ -75,21 +75,25 @@ void *map_get(HashMap *map, void *key)
         }
         index = (index + 1) % map->size_;
     } while (index != start_index);
-
+    assert(false);
     return NULL;
 }
 
 // 检查键是否存在
 bool map_contains(HashMap *map, void *key)
 {
-    if (map == NULL || key == NULL)
-        return false;
-
-    unsigned int index = map->HashCalc_(key) % map->size_;
+    return map_get(map, key) != NULL;
+}
+bool map_registered(HashMap *map, void *key)
+{
+    assert(map != NULL);
+    assert(key != NULL);
+    unsigned int index = map->HashCalc_(key)% map->size_;
     unsigned int start_index = index;
 
     do
     {
+        // 如果遇到空位置，表示键不存在
         if (map->buckets_[index].key_ == NULL)
         {
             return false;
@@ -100,6 +104,6 @@ bool map_contains(HashMap *map, void *key)
         }
         index = (index + 1) % map->size_;
     } while (index != start_index);
-
+    assert(false);
     return false;
 }

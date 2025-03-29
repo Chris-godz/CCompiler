@@ -1,6 +1,6 @@
 #include "sysy.ast.h"
 #include "sysy.riscv.h"
-#define MAX_IR_LENTH 1000
+#define MAX_IR_LENTH 10000
 extern FILE* yyin;
 extern int yyparse();
 int main(int argc , char **argv)
