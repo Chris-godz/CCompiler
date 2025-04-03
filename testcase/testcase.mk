@@ -1,4 +1,4 @@
-.PHONY : t1 t2
+.PHONY : t1 t2 t3 t4 t5 t6
 
 testdir :=  $(TOP_DIR)/testcase
 
@@ -16,3 +16,6 @@ t4:$(BUILD_DIR)/$(TARGET_EXEC)
 
 t5:$(BUILD_DIR)/$(TARGET_EXEC)
 	@$(BUILD_DIR)/$(TARGET_EXEC) -koopa $(testdir)/v5.0/input.txt -o $(testdir)/v5.0/output.txt
+
+t6:$(BUILD_DIR)/$(TARGET_EXEC)
+	@$(BUILD_DIR)/$(TARGET_EXEC) -riscv $(testdir)/v6.0/input.txt -o $(testdir)/v6.0/output.txt

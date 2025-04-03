@@ -61,6 +61,7 @@ enum {
     NT_EXP_NEQUAL,
     NT_EXP_AND,
     NT_EXP_OR,
+    NT_STMT_IF_ELSE,
     NT_STMT_EXPS,
     NT_STMT_RETURN,
     NT_STMT_ASSIGN,
@@ -84,6 +85,7 @@ struct ast* newastLVal(char* name);
 struct ast* newastVarDef(struct ast* astl, struct ast* astr, char* varName);
 struct ast *newastAssign(struct ast *astl, struct ast *astr);
 struct ast* newastBItem(struct ast* astl, struct ast* astr);
+struct ast *newastIf(struct ast *astl, struct ast *astrl, struct ast *astrr);
 int Calc(struct ast *ast);
 void dumpCompileUnit(struct compileUnit* compileUnit , char* buffer);
 void freeCompileUnit(struct compileUnit* compileUnit);

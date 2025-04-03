@@ -14,7 +14,7 @@ void yyerror(const char *s);
     int val_;
 }
 
-%token INT CONST RETURN IDENT IVAL LE GE EQ NE AND OR
+%token ELSE IF INT CONST RETURN IDENT IVAL LE GE EQ NE AND OR
 
 %type<symbol_> IDENT FuncType BType
 %type<val_> IVAL
@@ -25,6 +25,9 @@ void yyerror(const char *s);
 
 %start CompUnit
 
+// 用于解决 dangling else 的优先级设置
+%precedence IFX
+%precedence ELSE
 %%
 
 CompUnit: FuncDef {
@@ -58,6 +61,8 @@ Stmt: LVal '=' Exp ';' { $$ = newastAssign($1, $3); }
     | RETURN Exp ';'   { $$ = newastRet($2); }
     | Block { $$ = $1; }
     | Exps { $$ = $1; }
+    | IF '(' Exp ')' Stmt %prec IFX { $$ = newastIf($3, $5, NULL); }
+    | IF '(' Exp ')' Stmt ELSE Stmt { $$ = newastIf($3, $5, $7); }
     ;
 
 Exps: ';' { $$ = newastExps(NULL,NULL); }

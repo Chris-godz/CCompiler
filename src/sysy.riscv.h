@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <stdbool.h>
 void riscvCompile(char* ir,FILE* fp_out);
-void calc_stack_frame_size(const koopa_raw_slice_t insts);
+void calc_stack_frame_size(const koopa_raw_slice_t block);
 void load_value_to_reg(const koopa_raw_value_t value,int reg);
 void visit_load(const koopa_raw_load_t load, const koopa_raw_value_t value);
 void visit_slice(const koopa_raw_slice_t slice);

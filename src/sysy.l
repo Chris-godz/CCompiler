@@ -14,6 +14,8 @@ int fileno(FILE *stream);
 "const"             { return CONST; }
 "int"               { return INT; }
 "return"            { return RETURN; }
+"if"                { return IF; }
+"else"              { return ELSE; }
 "<="                { return LE; }
 ">="                { return GE; }
 "!="                { return NE; }

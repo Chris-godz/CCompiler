@@ -85,15 +85,18 @@ void visit_function(const koopa_raw_function_t function)
     fprintf(fp_out_global, "\t.global %s\n",function->name+1);
     fprintf(fp_out_global, "%s:\n",function->name+1); // delete the first char '@'
     stack_frame_size_used = 0;
-    visit_slice(function->bbs);
-}
-void visit_block(const koopa_raw_basic_block_t block)
-{
-    calc_stack_frame_size(block->insts);
+    stack_frame_size = 0;
+    calc_stack_frame_size(function->bbs);
     if(stack_frame_size > 0)
     {
         fprintf(fp_out_global, "\taddi sp, sp, -%d\n", stack_frame_size);
     }
+    // 访问函数参数
+    visit_slice(function->bbs);
+}
+void visit_block(const koopa_raw_basic_block_t block)
+{
+    fprintf(fp_out_global, "%s:\n",block->name+1); 
     visit_slice(block->insts);
 }
 
@@ -105,7 +108,7 @@ void visit_ret(const koopa_raw_return_t ret)
     {
         fprintf(fp_out_global, "\taddi sp, sp, %d\n", stack_frame_size);
     }
-    fprintf(fp_out_global, "\tret");
+    fprintf(fp_out_global, "\tret\n");
 }
 void visit_int(const koopa_raw_integer_t integer)
 {
@@ -201,6 +204,18 @@ void visit_binary(const koopa_raw_binary_t binary, const koopa_raw_value_t value
     fprintf(fp_out_global, "\tsw %s, %d(sp)\n", reg_names[reg_left], stack_frame_size_used);
     stack_frame_size_used += 4;
 }
+void visit_branch(const koopa_raw_branch_t branch)
+{
+    load_value_to_reg(branch.cond, 0);
+    fprintf(fp_out_global, "\tbnez %s, %s\n", reg_names[0], branch.true_bb->name+1);
+    fprintf(fp_out_global, "\tj %s\n", branch.false_bb->name+1);
+    // visit_block(branch.true_bb);
+    // visit_block(branch.false_bb);
+}
+void visit_jump(const koopa_raw_jump_t jump)
+{
+    fprintf(fp_out_global, "\tj %s\n", jump.target->name+1);
+}
 void visit_value(const koopa_raw_value_t value)
 {
     
@@ -252,24 +267,53 @@ void visit_value(const koopa_raw_value_t value)
             //   } koopa_raw_binary_t;
             visit_binary(value->kind.data.binary , value);
             break;
+        case KOOPA_RVT_BRANCH:
+            // typedef struct {
+            //     /// Condition.
+            //     koopa_raw_value_t cond;
+            //     /// Target if condition is `true`.
+            //     koopa_raw_basic_block_t true_bb;
+            //     /// Target if condition is `false`.
+            //     koopa_raw_basic_block_t false_bb;
+            //     /// Arguments of `true` target..
+            //     koopa_raw_slice_t true_args;
+            //     /// Arguments of `false` target..
+            //     koopa_raw_slice_t false_args;
+            //   } koopa_raw_branch_t;
+            visit_branch(value->kind.data.branch);
+            break;
+        case KOOPA_RVT_JUMP:
+            // typedef struct {
+            //     /// Target.
+            //     koopa_raw_basic_block_t target;
+            //     /// Arguments of target..
+            //     koopa_raw_slice_t args;
+            //   } koopa_raw_jump_t;
+            visit_jump(value->kind.data.jump);
+            break;
         default:
             assert(false);
     }
 }
-void calc_stack_frame_size(const koopa_raw_slice_t insts)
+void calc_stack_frame_size(const koopa_raw_slice_t block)
 {
-    assert(insts.kind == KOOPA_RSIK_VALUE);
-    stack_frame_size = 0;
-    stack_frame_size_used = 0;
-    for(size_t i = 0; i < insts.len; i++)
+    // 计算栈帧大小
+    assert(block.kind == KOOPA_RSIK_BASIC_BLOCK);
+    for(size_t i = 0; i < block.len; i++)
     {
-        koopa_raw_value_t value = (koopa_raw_value_t)insts.buffer[i];
-        // 如果指令的类型为 unit (类似 C/C++ 中的 void), 则这条指令不存在返回值.
-        if(value->kind.tag == KOOPA_RVT_ALLOC && value->ty->tag != KOOPA_RTT_UNIT)
+        koopa_raw_basic_block_t bb = (koopa_raw_basic_block_t)block.buffer[i];
+        koopa_raw_slice_t insts = bb->insts;
+        assert(insts.kind == KOOPA_RSIK_VALUE);
+        for(size_t j = 0; j < insts.len; j++)
         {
-            stack_frame_size += 4;
-        }
-    }   
+            koopa_raw_value_t value = (koopa_raw_value_t)insts.buffer[j];
+            // 如果指令的类型为 unit (类似 C/C++ 中的 void), 则这条指令不存在返回值.
+            if(value->kind.tag == KOOPA_RVT_ALLOC || value->ty->tag != KOOPA_RTT_UNIT)
+            {
+                stack_frame_size += 4;
+            }
+        }   
+    }
     //sp 寄存器用来保存栈指针, 它的值必须是 16 字节对齐的 (RISC-V 规范第 107 页)
     stack_frame_size = (stack_frame_size + 15) >> 4 << 4;
 }
